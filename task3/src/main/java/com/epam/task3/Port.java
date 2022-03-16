@@ -131,7 +131,7 @@ public class Port implements Serializable {
             unloadShip(ship);
         }
         ship.setState(Ship.State.COMPLETED);
-        LOGGER.info("Completed. "+ship+"\n Available containers = "+getAvailableContainers()+" availablePlace = "+getAvailablePlace());//fixme
+        LOGGER.info("Completed. "+ship+"\n\t\t Available containers = "+getAvailableContainers()+" availablePlace = "+getAvailablePlace());//fixme
         releasePier(ship);
     }
 

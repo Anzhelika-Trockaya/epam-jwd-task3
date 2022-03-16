@@ -1,4 +1,4 @@
-package com.epam.task3;
+package com.epam.task3.util;
 
 public class ShipIdGenerator {
     private static long currentId = 0;

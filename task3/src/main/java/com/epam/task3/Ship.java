@@ -1,5 +1,7 @@
 package com.epam.task3;
 
+import com.epam.task3.util.ShipIdGenerator;
+
 import java.io.Serializable;
 
 public class Ship extends Thread implements Serializable {
@@ -73,14 +75,16 @@ public class Ship extends Thread implements Serializable {
 
 
     @Override
-    public String toString() {//fixme StringBulder
-        return "Ship{" +
-                "shipId=" + shipId +
-                ", capacity=" + capacity +
-                ", containerQuantity=" + containerQuantity +
-                ", state=" + state +
-                ", pier=" + pier +
-                '}';
+    public String toString() {
+        String className = this.getClass().getSimpleName();
+        StringBuilder builder = new StringBuilder(className);
+        builder.append("{shipId=").append(shipId).
+                append(", capacity=").append(capacity).
+                append(", containerQuantity=").append(containerQuantity).
+                append(", state=").append(state).
+                append(", pier=").append(pier).
+                append('}');
+        return builder.toString();
     }
 
     public void goToPort() {

@@ -21,8 +21,7 @@ public class Port implements Serializable {
     public static final int DEFAULT_CONTAINER_QUANTITY = 500;
     public static final int DEFAULT_LOAD_UNLOAD_SPEED = 30;
     private static final ReentrantLock LOCK = new ReentrantLock(true);
-    private final Condition LOAD_CONDITION = LOCK.newCondition();
-    private final Condition UNLOAD_CONDITION = LOCK.newCondition();
+    private final Condition condition = LOCK.newCondition();
 
     private Deque<Pier> availablePiers;
     private int capacity;
@@ -96,13 +95,13 @@ public class Port implements Serializable {
         try {
             LOCK.lock();
             if (ship.getContainerQuantity() == 0) {
-                while (getAvailableContainers() < ship.getCapacity()) {
-                    LOAD_CONDITION.await();
+                while (getAvailableContainers() < ship.getCapacity()) {//fixme if?
+                    condition.await();
                 }
                 reservedContainerQuantity.getAndAdd(ship.getCapacity());
             } else {
-                while (getAvailablePlace() < ship.getContainerQuantity()) {
-                    UNLOAD_CONDITION.await();
+                while (getAvailablePlace() < ship.getContainerQuantity()) {//fixme if?
+                    condition.await();
                 }
                 reservedPlace.getAndAdd(ship.getContainerQuantity());
             }
@@ -117,6 +116,7 @@ public class Port implements Serializable {
             LOGGER.warn(ship + " was interrupted! " + e);
             releasePier(ship);
         } finally {
+            condition.signalAll();
             LOCK.unlock();
         }
     }
@@ -150,7 +150,6 @@ public class Port implements Serializable {
             LOGGER.warn(ship + " is interrupted! " + ship.getContainerQuantity() + " containers not unloaded!");
             releasePier(ship);
         }
-        //fixme LOAD_CONDITION.signalAll();
     }
 
     private void loadShip(Ship ship) {
@@ -171,7 +170,6 @@ public class Port implements Serializable {
             LOGGER.warn(ship + " is interrupted! " + missingQuantity + " containers not loaded!");
             releasePier(ship);
         }
-       //fixme UNLOAD_CONDITION.signalAll();
     }
 
     private void releasePier(Ship ship) {

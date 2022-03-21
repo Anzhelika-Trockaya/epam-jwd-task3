@@ -9,6 +9,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.*;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Condition;
@@ -19,6 +20,7 @@ public class Port implements Serializable {
     private static final Logger LOGGER = LogManager.getLogger();
     public static Port instance;
     private static final AtomicBoolean isInitialized = new AtomicBoolean();
+    private static final CountDownLatch initialisingLatch = new CountDownLatch(1);
     public static final double MAX_LOAD_PERCENTAGE = 0.75;
     public static final double MIN_LOAD_PERCENTAGE = 0.25;
     public static final double OPTIMAL_LOAD_PERCENTAGE = 0.5;
@@ -33,8 +35,22 @@ public class Port implements Serializable {
     private final AtomicInteger reservedContainerQuantity;
     private final AtomicInteger reservedPlace;
 
-
     public static Port getInstance() {
+        if (instance == null) {
+            while (isInitialized.compareAndSet(false, true)) {
+                instance = new Port();
+                initialisingLatch.countDown();
+            }
+            try {
+                initialisingLatch.await();
+            } catch (InterruptedException e) {
+                LOGGER.error(Thread.currentThread() + " is interrupted! ", e);
+            }
+        }
+        return instance;
+    }
+
+        /*public static Port getInstance() {
         if (!isInitialized.get()) {
             try {
                 lock.lock();
@@ -47,7 +63,7 @@ public class Port implements Serializable {
             }
         }
         return instance;
-    }
+    }*///fixme: delete
 
     private Port() {
         String filePath;

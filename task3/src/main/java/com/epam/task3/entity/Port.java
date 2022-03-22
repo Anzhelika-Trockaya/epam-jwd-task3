@@ -139,8 +139,8 @@ public class Port implements Serializable {
     public void releasePier(Pier pier) {
         try {
             lock.lock();
-            availablePiers.addLast(pier);
             occupiedPiers.remove(pier);
+            availablePiers.addLast(pier);
             LOGGER.info(pier + " is free. " + this);
         } finally {
             condition.signalAll();

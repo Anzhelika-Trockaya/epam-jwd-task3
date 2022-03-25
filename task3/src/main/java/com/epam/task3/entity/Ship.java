@@ -5,21 +5,20 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.Serializable;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 public class Ship extends Thread implements Serializable {
     private static final long serialVersionUID = -3491118351213241146L;
     private static final Logger LOGGER = LogManager.getLogger();
-    public static final int DEFAULT_CONTAINER_QUANTITY = 0;
     public static final int DEFAULT_LOAD_UNLOAD_SPEED = 50;
+    public static final int EMPTY_SHIP_CONTAINER_QUANTITY = 0;
     private final long shipId;
     private int capacity;
+    private boolean isFull;
     private int containerQuantity;
     private int loadUnloadSpeed;
 
     private State state;
-    private Pier pier;
     private final Port port;
 
     public enum State {
@@ -36,14 +35,25 @@ public class Ship extends Thread implements Serializable {
     public Ship() {
     }
 
+    public Ship(int capacity, boolean isFull) {
+        this.capacity = capacity;
+        this.isFull = isFull;
+        if (isFull) {
+            this.containerQuantity = capacity;
+        }
+    }
+
     public Ship(int capacity, int containerQuantity) {
         this.capacity = capacity;
         this.containerQuantity = containerQuantity;
+        if (containerQuantity > EMPTY_SHIP_CONTAINER_QUANTITY) {
+            isFull = true;
+        }
     }
 
     public Ship(int capacity) {
         this.capacity = capacity;
-        this.containerQuantity = DEFAULT_CONTAINER_QUANTITY;
+        isFull = false;
     }
 
     public long getShipId() {
@@ -74,20 +84,20 @@ public class Ship extends Thread implements Serializable {
         this.state = state;
     }
 
+    public boolean isFull() {
+        return isFull;
+    }
+
+    public void setFull(boolean full) {
+        isFull = full;
+    }
+
     public int getLoadUnloadSpeed() {
         return loadUnloadSpeed;
     }
 
     public void setLoadUnloadSpeed(int loadUnloadSpeed) {
         this.loadUnloadSpeed = loadUnloadSpeed;
-    }
-
-    public Pier getPier() {
-        return pier;
-    }
-
-    public void setPier(Pier pier) {
-        this.pier = pier;
     }
 
     @Override
@@ -100,22 +110,22 @@ public class Ship extends Thread implements Serializable {
         }
         Ship ship = (Ship) o;
         return shipId == ship.shipId &&
+                isFull == ship.isFull &&
                 capacity == ship.capacity &&
                 containerQuantity == ship.containerQuantity &&
                 loadUnloadSpeed == ship.loadUnloadSpeed &&
-                state == ship.state &&
-                pier != null ? pier.equals(ship.pier) : ship.pier == null;
+                state == ship.state;
     }
 
     @Override
     public int hashCode() {
         final int prime = 31;
         int result = Long.hashCode(shipId);
+        result = result * prime + Boolean.hashCode(isFull);
         result = result * prime + capacity;
         result = result * prime + containerQuantity;
         result = result * prime + loadUnloadSpeed;
         result = result * prime + state.hashCode();
-        result = result * prime + (pier == null ? 0 : pier.hashCode());
         return result;
     }
 
@@ -124,82 +134,65 @@ public class Ship extends Thread implements Serializable {
         String className = this.getClass().getSimpleName();
         StringBuilder builder = new StringBuilder(className);
         builder.append("{shipId=").append(shipId).
+                append(", isFull=").append(isFull).
                 append(", capacity=").append(capacity).
                 append(", containerQuantity=").append(containerQuantity).
                 append(", state=").append(state).
-                append(", pier=").append(pier).
                 append('}');
         return builder.toString();
     }
 
     @Override
     public void run() {
-        Optional<Pier> optionalPier = port.getFreePier(this);
-        if (optionalPier.isPresent()) {
-            pier = optionalPier.get();
-            LOGGER.info(this + " moored at the pier:" + pier);
-            try {
-                TimeUnit.SECONDS.sleep(1);
-                process();
-            } catch (InterruptedException exception) {
-                LOGGER.warn(this + " is interrupted! ");
+        Pier pier = null;
+        try {
+            pier = port.getFreePier(this);
+            process();
+        } catch (InterruptedException exception) {
+            LOGGER.warn("Ship#" + shipId + " is interrupted\t\t\t" + this, exception);
+        } finally {
+            if (pier != null) {
                 port.releasePier(pier);
             }
-        } else {
-            LOGGER.warn("The ship is not assigned a pier. " + this);
         }
     }
 
-    private void process() {
+    private void process() throws InterruptedException {
         state = State.PROCESSING;
-        if (containerQuantity == 0) {
-            LOGGER.info(this + " starts load.");
-            load();
-            state = State.COMPLETED;
-            LOGGER.info(this + " loaded.");
-        } else {
-            LOGGER.info(this + " starts unload.");
+        if (isFull) {
+            LOGGER.info("Ship#" + shipId + " starts unload.\t\t\t" + this);
             unload();
-            state = State.COMPLETED;
-            LOGGER.info(this + " unloaded.");
+        } else {
+            LOGGER.info("Ship#" + shipId + " starts load.\t\t\t" + this);
+            load();
         }
-        port.releasePier(pier);
+        state = State.COMPLETED;
+        LOGGER.info("Ship#" + shipId + " COMPLETED.\t\t\t" + this);
     }
 
-    private void unload() {
+    private void unload() throws InterruptedException {
         int quantityToUnload;
-        try {
-            while (containerQuantity != 0) {
-                quantityToUnload = Math.min(containerQuantity, loadUnloadSpeed);
-                containerQuantity -= quantityToUnload;
-                port.getContainerQuantity().getAndAdd(quantityToUnload);
-                port.getReservedPlace().getAndAdd(-quantityToUnload);
-                TimeUnit.SECONDS.sleep(2);
-                LOGGER.info("Unloaded " + quantityToUnload + " containers. " + this);
-            }
-        } catch (InterruptedException e) {
-            LOGGER.warn(this + " is interrupted! " + containerQuantity + " containers not unloaded!");
-            port.releasePier(pier);
+        while (containerQuantity != 0) {
+            quantityToUnload = Math.min(containerQuantity, loadUnloadSpeed);
+            containerQuantity -= quantityToUnload;
+            port.getContainerQuantity().getAndAdd(quantityToUnload);
+            port.getReservedPlace().getAndAdd(-quantityToUnload);
+            TimeUnit.MILLISECONDS.sleep(100);
+            LOGGER.debug("Ship#" + shipId + ": Unloaded " + quantityToUnload + " containers.\t\t\t" + this);
         }
     }
 
-    private void load() {
+    private void load() throws InterruptedException {
         int quantityToLoad;
         int missingQuantity;
-        try {
-            while (containerQuantity != capacity) {
-                missingQuantity = capacity - containerQuantity;
-                quantityToLoad = Math.min(missingQuantity, loadUnloadSpeed);
-                containerQuantity += quantityToLoad;
-                port.getContainerQuantity().getAndAdd(-quantityToLoad);
-                port.getReservedContainerQuantity().getAndAdd(-quantityToLoad);
-                TimeUnit.SECONDS.sleep(2);
-                LOGGER.info("Loaded " + quantityToLoad + " containers. " + this);
-            }
-        } catch (InterruptedException e) {
+        while (containerQuantity != capacity) {
             missingQuantity = capacity - containerQuantity;
-            LOGGER.warn(this + " is interrupted! " + missingQuantity + " containers not loaded!");
-            port.releasePier(pier);
+            quantityToLoad = Math.min(missingQuantity, loadUnloadSpeed);
+            containerQuantity += quantityToLoad;
+            port.getContainerQuantity().getAndAdd(-quantityToLoad);
+            port.getReservedContainerQuantity().getAndAdd(-quantityToLoad);
+            TimeUnit.MILLISECONDS.sleep(100);
+            LOGGER.debug("Ship#" + shipId + ": Loaded " + quantityToLoad + " containers.\t\t\t" + this);
         }
     }
 }

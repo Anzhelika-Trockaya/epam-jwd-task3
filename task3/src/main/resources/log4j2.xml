@@ -4,7 +4,7 @@
         <property name="LOG_DIR">logs</property>
         <property name="pattern_file">%d{yyyy-MM-dd HH:mm:ss} [%t] %-5level
             %logger{5} - %msg%n</property>
-        <property name="pattern_console">%relative %-5level %logger{1} - %msg%n
+        <property name="pattern_console">%relative %d{ABSOLUTE} %-5level %logger{1} - %msg%n
         </property>
     </Properties>
     <ThresholdFilter level="trace"/>

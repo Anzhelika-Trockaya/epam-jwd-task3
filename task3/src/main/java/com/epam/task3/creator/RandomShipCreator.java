@@ -2,16 +2,12 @@ package com.epam.task3.creator;
 
 import com.epam.task3.entity.Port;
 import com.epam.task3.entity.Ship;
-import com.epam.task3.exception.PortException;
-import com.epam.task3.util.ResourcePathUtil;
+import com.epam.task3.property.ProjectProperties;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.io.FileInputStream;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Properties;
 import java.util.Random;
 
 public class RandomShipCreator {
@@ -19,7 +15,6 @@ public class RandomShipCreator {
     private static RandomShipCreator instance;
     private static final double MAX_SHIP_CAPACITY_PERCENTAGE = 0.3;
     private static final double MIN_SHIP_CAPACITY_PERCENTAGE = 0.05;
-    private static final String PROPERTIES_FILE_NAME = "port.properties";
     private final Port port;
     private final Random random;
     private final int numberOfShip;
@@ -33,22 +28,9 @@ public class RandomShipCreator {
 
     private RandomShipCreator() {
         port = Port.getInstance();
-        String filePath;
-        try {
-            filePath = ResourcePathUtil.getResourcePath(PROPERTIES_FILE_NAME);
-        } catch (PortException exception) {
-            LOGGER.fatal("Properties file not found!", exception);
-            throw new RuntimeException(exception);//todo?
-        }
-        try (FileInputStream fileInputStream = new FileInputStream(filePath)) {
-            Properties properties = new Properties();
-            properties.load(fileInputStream);
-            this.numberOfShip = Integer.parseInt(properties.getProperty("shipQuantity"));
-            random = new Random();
-        } catch (IOException exception) {
-            LOGGER.fatal("Properties not loaded!", exception);
-            throw new RuntimeException(exception);//todo?
-        }
+        ProjectProperties properties = ProjectProperties.getInstance();
+        this.numberOfShip = properties.getShipQuantity();
+        random = new Random();
     }
 
     public List<Ship> createShips() {
@@ -63,15 +45,9 @@ public class RandomShipCreator {
     }
 
     private Ship createShip() {
-        boolean fullShip = random.nextBoolean();
+        boolean isShipFull = random.nextBoolean();
         int capacity = generateCapacity();
-        Ship ship;
-        if (fullShip) {
-            ship = new Ship(capacity, capacity);
-        } else {
-            ship = new Ship(capacity);
-        }
-        return ship;
+        return new Ship(capacity, isShipFull);
     }
 
     private int generateCapacity() {

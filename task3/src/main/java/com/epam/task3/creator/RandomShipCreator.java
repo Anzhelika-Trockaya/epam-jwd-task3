@@ -13,7 +13,7 @@ import java.util.Random;
 public class RandomShipCreator {
     private static final Logger LOGGER = LogManager.getLogger();
     private static RandomShipCreator instance;
-    private static final double MAX_SHIP_CAPACITY_PERCENTAGE = 0.3;
+    private static final double MAX_SHIP_CAPACITY_PERCENTAGE = 0.25;
     private static final double MIN_SHIP_CAPACITY_PERCENTAGE = 0.05;
     private final Port port;
     private final Random random;
